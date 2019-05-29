@@ -28,6 +28,7 @@ ARGS = [
         'help': 'Whether to print report headers'
     }
 ]
+EXCEPTIONS = ['Anonymous Proxy', 'Asia/Pacific Region', 'Europe']
 
 
 def get_options(args):
@@ -55,11 +56,14 @@ def resolve():
         datetime_obj = datetime.strptime(period['Begin'], '%Y-%m-%d')
         timestamp = datetime_obj.strftime('%Y-%m-%d 00:00:00')
 
-        country_code = api.get_country_code(instance['Country'])
-        try:
-            assert country_code
-        except AssertionError:
-            continue
+        if instance['Country'] in EXCEPTIONS:
+            country_code = ''
+        else:
+            country_code = api.get_country_code(instance['Country'])
+            try:
+                assert country_code
+            except AssertionError:
+                continue
 
         yield (timestamp, country_code, instance['Count'])
 
