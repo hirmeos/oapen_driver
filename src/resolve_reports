@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys
+import json
+import csv
+from client import Client
+from datetime import datetime
+from optparse import OptionParser
+
+ARGS = [
+    {
+        'val': '--measure',
+        'dest': 'measure',
+        'action': 'store',
+        'default': None,
+        'help': 'URI eg. https://metrics.operas-eu.org/oapen/downloads/v1'
+    }, {
+        'val': '--uri',
+        'dest': 'uri',
+        'action': 'store',
+        'default': None,
+        'help': 'The URI identifying the object'
+    }, {
+        'val': '--add-headers',
+        'dest': 'add_headers',
+        'action': 'store_true',
+        'default': [],
+        'help': 'Whether to print report headers'
+    }
+]
+
+
+def get_options(args):
+    parser = OptionParser()
+    for arg in args:
+        parser.add_option(arg['val'], dest=arg['dest'],
+                          action=arg['action'], help=arg['help'])
+    options, rest = parser.parse_args()
+
+    allopts = options.measure and options.uri
+    if rest != [] or not allopts:
+        raise ValueError('Invalid arguments provided')
+    return options
+
+
+def resolve():
+    r = json.load(sys.stdin)
+    report = r['ReportResponse']['Report']['Report']['Customer']
+    api = Client()
+
+    for row in report['ReportItems'][0]['ItemPerformance']:
+        period = row['Period']
+        instance = row['Instance']
+
+        datetime_obj = datetime.strptime(period['Begin'], '%Y-%m-%d')
+        timestamp = datetime_obj.strftime('%Y-%m-%d 00:00:00')
+
+        country_code = api.get_country_code(instance['Country'])
+        try:
+            assert country_code
+        except AssertionError:
+            continue
+
+        yield (timestamp, country_code, instance['Count'])
+
+
+def run(measure, uri, add_headers):
+    hits = {}
+    for timestamp, country, value in resolve():
+        key = (timestamp, uri, country)
+        if key not in hits:
+            hits[key] = 0
+        hits[key] += int(value)
+
+    w = csv.writer(sys.stdout)
+    if add_headers:
+        w.writerow(('measure_id', 'timestamp', 'work_uri',
+                    'country_uri', 'event_uri', 'value'))
+    for key, value in hits.items():
+        row = tuple([measure] + list(key) + [''] + [value])
+        w.writerow(row)
+
+
+if __name__ == '__main__':
+    options = get_options(ARGS)
+    run(options.measure, options.uri, options.add_headers)

@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+import json
+import urllib
+import itertools
+import subprocess
+from client import Client
+from datetime import datetime
+
+
+MODES = json.loads(os.getenv('MODES'))
+OUTDIR = os.environ['OUTDIR']
+CACHEDIR = os.environ['CACHEDIR']
+IRUS_API_ENDP = os.environ['IRUS_API_ENDP']
+IRUS_API_REPORT = os.environ['IRUS_API_REPORT']
+IRUS_API_RELEASE = os.environ['IRUS_API_RELEASE']
+IRUS_API_USER = os.environ['IRUS_API_USER']
+IRUS_API_GRANULARITY = os.environ['IRUS_API_GRANULARITY']
+IRUS_API_BREAKDOWN = os.environ['IRUS_API_BREAKDOWN']
+OAPEN_SCHEME = 'tag:oapen.org,2008'
+
+
+def outstream(filename):
+    return open(filename, "w")
+
+
+def instream(filename):
+    return open(filename, "r")
+
+
+def get_cache_filename(odir, mode, name, date):
+    return "%s/%s_%s_%s.json" % (odir, mode, name, date)
+
+
+def get_output_filename(odir, date):
+    return "%s/OAPEN_%s.csv" % (odir, date)
+
+
+def exists_and_not_empty(filename):
+    try:
+        return os.path.getsize(filename) > 0
+    except OSError:
+        return False
+
+
+def generate_dates(date, cutoff_date):
+    epoch = datetime.strptime(date, '%Y-%m-%d')
+    cutoff = datetime.strptime(cutoff_date, '%Y-%m-%d')
+
+    i = epoch
+    while i <= cutoff:
+        yield i
+        i = next_month(i)
+
+
+def next_month(date):
+    month = date.month % 12 + 1
+    year = date.year if date.month < 12 else date.year + 1
+    return datetime.strptime('%d-%d-01' % (year, month), '%Y-%m-%d')
+
+
+def previous_month(date):
+    previous_month = date.month - 1 if date.month > 1 else 12
+    year = date.year if previous_month < 12 else date.year - 1
+    return "%s-%s-%s" % (year, previous_month, "01")
+
+
+def get_earliest(dates):
+    earliest = dates[0]
+    for date in dates:
+        date_time = datetime.strptime(date, '%Y-%m-%d')
+        earliest_time = datetime.strptime(earliest, '%Y-%m-%d')
+        if date_time < earliest_time:
+            earliest = date
+    return earliest
+
+
+def cache_stats(outputstream, url, report, release, requestor, start, end,
+                item, granularity, breakdown):
+    cmd = ['./retrieve_stats',
+           '--base-url', url,
+           '--report', report,
+           '--release', release,
+           '--requestor', requestor,
+           '--start-date', start,
+           '--end-date', end,
+           '--item', item,
+           '--granularity', granularity,
+           '--breakdown', breakdown]
+    subprocess.call(cmd, stdout=outputstream)
+
+
+def resolve_cache(output_stream, input_stream, measure, uri, headers):
+    add_headers = ['--add-headers'] if headers else []
+    cmd = ['./resolve_reports',
+           '--measure', measure,
+           '--uri', uri] + add_headers
+    subprocess.call(cmd, stdout=output_stream, stdin=input_stream)
+
+
+def is_oapenid(uri):
+    return uri['URI_parts']['scheme'] == OAPEN_SCHEME
+
+
+def map_dois(data):
+    dois = {}
+    for work in data:
+        if len(work['URI']) != 2:
+            continue
+        x, y = work['URI']
+        doi = x['URI'] if is_oapenid(y) else y['URI']
+        oid = y['URI_parts']['value'] if is_oapenid(y) \
+            else x['URI_parts']['value']
+        dois[oid] = doi
+    return dois
+
+
+def run():
+    # obtain the list of OAPEN IDs for which we want to get usage data
+    api = Client()
+    data = api.get_all_works()
+    uris = [uri for work in data for uri in work['URI']]
+    ids = [x['URI_parts']['value'] for x in uris if is_oapenid(x)]
+    dois = map_dois(data)
+
+    # cache IRUS-UK API responses for all MODES and publications
+    cutoff_date = previous_month(datetime.now())
+    for mode in MODES:
+        dates = generate_dates(mode['startDate'], cutoff_date)
+        for month, work in itertools.product(dates, ids):
+            date = month.strftime('%Y-%m-%d')
+            oaid = work.replace('oapen:', '')
+            cache_file = get_cache_filename(CACHEDIR, mode['name'], oaid, date)
+            if exists_and_not_empty(cache_file):
+                continue
+            cache_stats(outstream(cache_file),
+                        IRUS_API_ENDP,
+                        IRUS_API_REPORT,
+                        IRUS_API_RELEASE,
+                        IRUS_API_USER,
+                        month.strftime('%Y-%m'),
+                        next_month(month).strftime('%Y-%m'),
+                        urllib.parse.quote(work),
+                        IRUS_API_GRANULARITY,
+                        IRUS_API_BREAKDOWN)
+
+    # now we standarise reports and store them in each output CSV
+    earliest_date = get_earliest([m['startDate'] for m in MODES])
+    for day in generate_dates(earliest_date, cutoff_date):
+        date = day.strftime('%Y-%m-%d')
+        out_file = get_output_filename(OUTDIR, date)
+
+        # continue if output file already exists
+        if exists_and_not_empty(out_file):
+            continue
+
+        i = 0
+        output = outstream(out_file)
+        for m, work in itertools.product(MODES, dois):
+            oaid = work.replace('oapen:', '')
+            cache_file = get_cache_filename(CACHEDIR, m['name'], oaid, date)
+            # at this point all *relevant* cache files must exists
+            if not exists_and_not_empty(cache_file):
+                continue
+            inputs = instream(cache_file)
+            headers = i == 0  # only include headers in first iteration
+            i += 1
+            resolve_cache(output, inputs, m['measure'], dois[work], headers)
+
+
+if __name__ == '__main__':
+    run()
