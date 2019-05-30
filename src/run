@@ -12,6 +12,7 @@ from datetime import datetime
 MODES = json.loads(os.getenv('MODES'))
 OUTDIR = os.environ['OUTDIR']
 CACHEDIR = os.environ['CACHEDIR']
+REDO_OUTPUT = os.environ['REDO_OUTPUT'] in (True, 'True', 'true', 1)
 IRUS_API_ENDP = os.environ['IRUS_API_ENDP']
 IRUS_API_REPORT = os.environ['IRUS_API_REPORT']
 IRUS_API_RELEASE = os.environ['IRUS_API_RELEASE']
@@ -152,7 +153,7 @@ def run():
         out_file = get_output_filename(OUTDIR, date)
 
         # continue if output file already exists
-        if exists_and_not_empty(out_file):
+        if exists_and_not_empty(out_file) and not REDO_OUTPUT:
             continue
 
         i = 0
