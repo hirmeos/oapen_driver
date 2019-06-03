@@ -28,7 +28,8 @@ ARGS = [
         'help': 'Whether to print report headers'
     }
 ]
-EXCEPTIONS = ['Anonymous Proxy', 'Asia/Pacific Region', 'Europe']
+EXCEPTIONS = ['Anonymous Proxy', 'Asia/Pacific Region', 'Europe',
+              'Satellite Provider']
 
 
 def get_options(args):
