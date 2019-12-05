@@ -141,7 +141,7 @@ def run():
                         IRUS_API_RELEASE,
                         IRUS_API_USER,
                         month.strftime('%Y-%m'),
-                        next_month(month).strftime('%Y-%m'),
+                        month.strftime('%Y-%m'),
                         urllib.parse.quote(work),
                         IRUS_API_GRANULARITY,
                         IRUS_API_BREAKDOWN)
