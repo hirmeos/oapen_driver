@@ -22,6 +22,7 @@ ARGS = [
     }
 ]
 URI_SCHEME = "info:doi"
+COUNTRY_URI_SCHEME = "urn:iso:std:3166:-2"
 METRIC_TYPE = "Unique_Item_Requests"
 
 
@@ -38,20 +39,25 @@ def get_options(args):
     return args
 
 
+def standarise_country(country_code):
+    if not country_code:
+        return ""
+    return "{}:{}".format(COUNTRY_URI_SCHEME, country_code)
+
+
 def resolve():
     r = json.load(sys.stdin)
     for record in r['Report_Items']:
         # ignore records that don't have a DOI
         if "DOI" not in record:
             continue
-
         uri = "{}:{}".format(URI_SCHEME, record["DOI"].lower())
 
         # iterate Perfomance_Instances
         for metric in record["Performance_Instances"]:
             datetime_obj = datetime.strptime(metric["Event_Month"], '%Y-%m')
             timestamp = datetime_obj.strftime('%Y-%m-%d 00:00:00')
-            country_code = metric["Country"]["Country_Code"]
+            country_code = standarise_country(metric["Country"]["Country_Code"])
             value = metric["Metric_Type_Counts"][METRIC_TYPE]
 
             yield timestamp, uri, country_code, value

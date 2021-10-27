@@ -92,8 +92,7 @@ def run():
             request_date = month.strftime('%Y-%m')
             report = api.item_report(request_date, request_date)
             cache = outstream(cache_file)
-            for row in report:
-                cache.write(row)
+            cache.write(json.dumps(report))
             cache.close()
 
     # now we standarise reports and store them in each output CSV
