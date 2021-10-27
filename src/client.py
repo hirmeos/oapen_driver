@@ -1,62 +1,60 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import sys
-import json
-import httplib2
+import json.decoder
+import requests
 import urllib.parse
 
-URI_API_USER = os.environ['URI_API_USER']
-URI_API_PASS = os.environ['URI_API_PASS']
-AUTH_API_ENDP = os.environ['AUTH_API_ENDP']
-URI_API_WORKS = os.environ['URI_API_WORKS']
-COUNTRY_API_ENDP = os.environ['COUNTRY_API_ENDP']
-COUNTRY_CACHE = {}
+BASE_URL = "https://irus.jisc.ac.uk/api/oapen"
+PLATFORM = 215
+ATTRIBUTES_TO_SHOW = "Country"
+METRIC_TYPE = "Unique_Item_Requests"
 
 
-class Client(object):
-    """Single entry point to the translation service API"""
+class IrusClient(object):
+    """Single entry point to the IRUS OAPEN API"""
 
-    def __init__(self):
-        self.token = self.get_token(AUTH_API_ENDP, URI_API_USER, URI_API_PASS)
-        self.auth = 'Bearer ' + self.token
-        self.auth_headers = {'Authorization': self.auth}
+    def __init__(self, requestor_id, api_key, base_url=BASE_URL,
+                 platform=PLATFORM, attributes_to_show=ATTRIBUTES_TO_SHOW,
+                 metrics_type=METRIC_TYPE):
+        self.base_url = base_url
+        self.requestor_id = requestor_id
+        self.api_key = api_key
+        self.platform = platform
+        self.attributes_to_show = attributes_to_show
+        self.metric_type = metrics_type
 
-    def get_token(self, url, email, passwd):
-        h = httplib2.Http()
-        credentials = {'email': email, 'password': passwd}
-        headers = {'content-type': 'application/json'}
-        res, content = h.request(url, 'POST', json.dumps(credentials), headers)
-        if res.status != 200:
-            raise ValueError(content.decode('utf-8'))
-        return json.loads(content.decode('utf-8'))['data'][0]['token']
+    def item_report(self, begin_date, end_date):
+        path = "/reports/oapen_ir"
+        params = {
+            "begin_date": begin_date,
+            "end_date": end_date
+        }
+        return self.make_request(path, params)
 
-    def request_identifiers(self, url):
-        h = httplib2.Http()
-        res, content = h.request(url, 'GET', headers=self.auth_headers)
-        if res.status != 200:
-            raise ValueError(content.decode('utf-8'))
-        return json.loads(content.decode('utf-8'))['data']
+    def platform_report(self, begin_date, end_date):
+        path = "/reports/oapen_pr"
+        params = {
+            "begin_date": begin_date,
+            "end_date": end_date
+        }
+        return self.make_request(path, params)
 
-    def get_all_works(self):
-        url = (URI_API_WORKS
-               + '?filter=uri_scheme:tag:oapen.org,2008,uri_scheme:info:doi'
-               + '&strict=true')
-        return self.request_identifiers(url)
-
-    def get_country_code(self, country_name):
-        country_name = urllib.parse.quote(country_name.encode('utf8'))
-        if country_name in COUNTRY_CACHE:
-            return COUNTRY_CACHE[country_name]
-        req = "%s?country_name=%s" % (COUNTRY_API_ENDP, country_name)
-        h = httplib2.Http()
-        res, content = h.request(req, 'GET', headers=self.auth_headers)
-        if res.status != 200:
-            r = json.loads(content.decode('utf-8'))
-            m = "%s: %s" % (r['message'], r['parameters']['country_name'])
-            print(m, file=sys.stderr)
-            return ""
-        code = json.loads(content.decode('utf-8'))['data'][0]['country_id']
-        COUNTRY_CACHE[country_name] = code
-        return code
+    def make_request(self, path, params):
+        params["requestor_id"] = self.requestor_id
+        params["api_key"] = self.api_key
+        params["platform"] = self.platform
+        params["attributes_to_show"] = self.attributes_to_show
+        params["metric_type"] = self.metric_type
+        url = urllib.parse.urljoin(self.base_url, path)
+        try:
+            res = requests(url, params)
+            if res.status_code != 200:
+                raise ValueError
+            data = res.json()
+            res.close()
+            return data
+        except (KeyError, TypeError, ValueError,
+                json.decoder.JSONDecodeError,
+                requests.exceptions.RequestException):
+            raise ValueError(res.content)

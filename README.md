@@ -1,5 +1,5 @@
 # OAPEN Driver
-[![Build Status](https://travis-ci.org/hirmeos/oapen_driver.svg?branch=master)](https://travis-ci.org/hirmeos/oapen_driver) [![Release](https://img.shields.io/github/release/hirmeos/oapen_driver.svg?colorB=58839b)](https://github.com/hirmeos/oapen_driver/releases) [![License](https://img.shields.io/github/license/hirmeos/oapen_driver.svg?colorB=ff0000)](https://github.com/hirmeos/oapen_driver/blob/master/LICENSE)
+[![Release](https://img.shields.io/github/release/hirmeos/oapen_driver.svg?colorB=58839b)](https://github.com/hirmeos/oapen_driver/releases) [![License](https://img.shields.io/github/license/hirmeos/oapen_driver.svg?colorB=ff0000)](https://github.com/hirmeos/oapen_driver/blob/master/LICENSE)
 
 This driver allows programmatic retrieval and normalisation of OAPEN usage data, obtained via IRUS-UK API.
 

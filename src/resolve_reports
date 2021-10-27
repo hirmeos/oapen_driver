@@ -3,7 +3,6 @@
 import sys
 import json
 import csv
-from client import Client
 from datetime import datetime
 from optparse import OptionParser
 
@@ -15,12 +14,6 @@ ARGS = [
         'default': None,
         'help': 'URI eg. https://metrics.operas-eu.org/oapen/downloads/v1'
     }, {
-        'val': '--uri',
-        'dest': 'uri',
-        'action': 'store',
-        'default': None,
-        'help': 'The URI identifying the object'
-    }, {
         'val': '--add-headers',
         'dest': 'add_headers',
         'action': 'store_true',
@@ -28,8 +21,8 @@ ARGS = [
         'help': 'Whether to print report headers'
     }
 ]
-EXCEPTIONS = ['Anonymous Proxy', 'Asia/Pacific Region', 'Europe',
-              'Satellite Provider']
+URI_SCHEME = "info:doi"
+METRIC_TYPE = "Unique_Item_Requests"
 
 
 def get_options(args):
@@ -37,41 +30,35 @@ def get_options(args):
     for arg in args:
         parser.add_option(arg['val'], dest=arg['dest'],
                           action=arg['action'], help=arg['help'])
-    options, rest = parser.parse_args()
+    args, rest = parser.parse_args()
 
-    allopts = options.measure and options.uri
+    allopts = args.measure
     if rest != [] or not allopts:
         raise ValueError('Invalid arguments provided')
-    return options
+    return args
 
 
 def resolve():
     r = json.load(sys.stdin)
-    report = r['ReportResponse']['Report']['Report']['Customer']
-    api = Client()
+    for record in r['Report_Items']:
+        # ignore records that don't have a DOI
+        if "DOI" not in record:
+            continue
+        uri = format("%s:%s", URI_SCHEME, record["DOI"].lower())
 
-    for row in report['ReportItems'][0]['ItemPerformance']:
-        period = row['Period']
-        instance = row['Instance']
+        # iterate Perfomance_Instances
+        for metric in record["Performance_Instances"]:
+            datetime_obj = datetime.strptime(metric["Event_Month"], '%Y-%m')
+            timestamp = datetime_obj.strftime('%Y-%m-%d 00:00:00')
+            country_code = metric["Country"]["Country_Code"]
+            value = metric["Metric_Type_Counts"][METRIC_TYPE]
 
-        datetime_obj = datetime.strptime(period['Begin'], '%Y-%m-%d')
-        timestamp = datetime_obj.strftime('%Y-%m-%d 00:00:00')
-
-        if instance['Country'] in EXCEPTIONS:
-            country_code = ''
-        else:
-            country_code = api.get_country_code(instance['Country'])
-            try:
-                assert country_code
-            except AssertionError:
-                continue
-
-        yield (timestamp, country_code, instance['Count'])
+            yield timestamp, uri, country_code, value
 
 
-def run(measure, uri, add_headers):
+def run(measure, add_headers):
     hits = {}
-    for timestamp, country, value in resolve():
+    for timestamp, uri, country, value in resolve():
         key = (timestamp, uri, country)
         if key not in hits:
             hits[key] = 0
@@ -88,4 +75,4 @@ def run(measure, uri, add_headers):
 
 if __name__ == '__main__':
     options = get_options(ARGS)
-    run(options.measure, options.uri, options.add_headers)
+    run(options.measure, options.add_headers)
