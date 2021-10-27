@@ -57,7 +57,8 @@ def resolve():
         for metric in record["Performance_Instances"]:
             datetime_obj = datetime.strptime(metric["Event_Month"], '%Y-%m')
             timestamp = datetime_obj.strftime('%Y-%m-%d 00:00:00')
-            country_code = standarise_country(metric["Country"]["Country_Code"])
+            country = metric["Country"]["Country_Code"]
+            country_code = standarise_country(country)
             value = metric["Metric_Type_Counts"][METRIC_TYPE]
 
             yield timestamp, uri, country_code, value
