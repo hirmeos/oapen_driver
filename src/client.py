@@ -3,7 +3,6 @@
 
 import json.decoder
 import requests
-import urllib.parse
 
 BASE_URL = "https://irus.jisc.ac.uk/api/oapen"
 PLATFORM = 215
