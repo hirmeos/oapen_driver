@@ -44,7 +44,8 @@ def resolve():
         # ignore records that don't have a DOI
         if "DOI" not in record:
             continue
-        uri = format("%s:%s", URI_SCHEME, record["DOI"].lower())
+
+        uri = "{}:{}".format(URI_SCHEME, record["DOI"].lower())
 
         # iterate Perfomance_Instances
         for metric in record["Performance_Instances"]:

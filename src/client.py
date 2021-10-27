@@ -46,9 +46,10 @@ class IrusClient(object):
         params["platform"] = self.platform
         params["attributes_to_show"] = self.attributes_to_show
         params["metric_type"] = self.metric_type
-        url = urllib.parse.urljoin(self.base_url, path)
+        url = "{}{}".format(self.base_url, path)
+
         try:
-            res = requests(url, params)
+            res = requests.get(url, params)
             if res.status_code != 200:
                 raise ValueError
             data = res.json()
