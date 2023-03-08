@@ -4,7 +4,7 @@
 import json.decoder
 import requests
 
-BASE_URL = "https://irus.jisc.ac.uk/api/oapen"
+BASE_URL = "https://irus.jisc.ac.uk/api/v3/oapen"
 PLATFORM = 215
 ATTRIBUTES_TO_SHOW = "Country"
 METRIC_TYPE = "Unique_Item_Requests"
