@@ -7,7 +7,7 @@ NB. Unlike other drivers developed within the HIRMEOS metrics project, OAPEN’s
 
 ## Run via crontab
 ```
-0 0 * * 0 docker run --rm --name "oapen_driver" --env-file /path/to/config.env -v oapen_cache:/usr/src/app/cache -v metrics:/usr/src/app/output openbookpublishers/oapen_driver:1
+0 0 * * 0 docker run --rm --name "oapen_driver" --env-file /path/to/config.env -v oapen_cache:/usr/src/app/cache -v metrics:/usr/src/app/output openbookpublishers/oapen_driver
 ```
 
 [1]: https://metrics.operas-eu.org/docs/metrics-api "Metrics API docs"
